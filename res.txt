@@ -29,3 +29,18 @@ batch_size=256, epochs=5, eta=0.002, glove50
 nltk tokenization, max padding over q1 and q2 separately for q1 and q2 over all data set, separation mark: padding, no end mark
 
 out of memory
+
+
+batch_size=256, epochs=5, eta=0.002, glove50
+nltk tokenization, max padding over q1 and q2 separately for q1 and q2 by batch, separation mark: padding, no end mark
++-------------------+------------------------+---------------------+
+|                   | Predicted no duplicate | Predicted duplicate |
++-------------------+------------------------+---------------------+
+| Real no duplicate | 25988                  | 353                 |
+| Real duplicate    | 12110                  | 1983                |
++-------------------+------------------------+---------------------+
+Accuracy: 0.6918
+
+
+batch_size=256, epochs=5, eta=0.002, glove50
+nltk tokenization, max padding over q1 and q2 for q1 and q2 by batch, separation mark: padding, no end mark

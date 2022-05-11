@@ -135,8 +135,8 @@ class PadSequence:
         max_q1 = max(map(len, q1_list))
         max_q2 = max(map(len, q2_list))
         longest = max(max_q1, max_q2)
-        q1_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q1)] for b in q1_list]
-        q2_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q2)] for b in q2_list]
+        q1_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(longest)] for b in q1_list]
+        q2_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(longest)] for b in q2_list]
         padded_data = [q1_list[i] + [PADDING_WORD] + q2_list[i] for i in range(len(q1_list))]
         return padded_data, batch_labels
 
