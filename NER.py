@@ -71,13 +71,23 @@ class NERDataset(Dataset):
         nltk.download("punkt")
         # reader = csv.reader(codecs.open(filename, encoding='ascii', errors='ignore'), delimiter=',')
         data = pd.read_csv(filename)
-        q1_list = data["question1"].tolist()
-        q2_list = data["question2"].tolist()
+        self.q1_list = data["question1"].tolist()
+        self.q2_list = data["question2"].tolist()
 
         print("use nltk tokenization")
-        q1_list = [nltk.word_tokenize(q.lower()) for q in q1_list]
-        q2_list = [nltk.word_tokenize(q.lower()) for q in q2_list]
-        self.sentences = [q1_list[i] + [PADDING_WORD] + q2_list[i] for i in range(len(q1_list))]
+        self.q1_list = [nltk.word_tokenize(q.lower()) for q in self.q1_list]
+        self.q2_list = [nltk.word_tokenize(q.lower()) for q in self.q2_list]
+
+        # max_q1 = max(map(len, q1_list))
+        # max_q2 = max(map(len, q2_list))
+        # print(max_q1)
+        # print(max_q2)
+        # longest = max(max_q1, max_q2)
+        # q1_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q1)] for b in q1_list]
+        # q2_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q2)] for b in q2_list]
+        # print(np.shape(q1_list))
+        # print(np.shape(q2_list))
+        # self.sentences = [self.q1_list[i] + [PADDING_WORD] + self.q2_list[i] for i in range(len(self.q1_list))]
 
         # print("keep symbols and pad without alignment")
         # self.sentences = [re.findall(r"\w+|[^\w\s]", q1_list[i], re.UNICODE) + re.findall(r"\w+|[^\w\s]", q2_list[i], re.UNICODE)
@@ -102,10 +112,11 @@ class NERDataset(Dataset):
         return 0 if x == 'O' or x == 0 else 1
 
     def __len__(self):
-        return len(self.sentences)
+        return len(self.labels)
 
     def __getitem__(self, idx):
-        return self.sentences[idx], self.labels[idx]
+        # return self.sentences[idx], self.labels[idx]
+        return self.q1_list[idx], self.q2_list[idx], self.labels[idx]
 
 
 class PadSequence:
@@ -114,10 +125,19 @@ class PadSequence:
     """
 
     def __call__(self, batch, pad_data=PADDING_WORD, pad_labels=0):
-        batch_data, batch_labels = zip(*batch)
-        max_len = max(map(len, batch_data))
-        padded_data = [[b[i] if i < len(b) else pad_data for i in range(max_len)] for b in batch_data]
-        # padded_labels = [[l[i] if i < len(l) else pad_labels for i in range(max_len)] for l in batch_labels]
+        # batch_data, batch_labels = zip(*batch)
+        # max_len = max(map(len, batch_data))
+        # padded_data = [[b[i] if i < len(b) else pad_data for i in range(max_len)] for b in batch_data]
+        # # padded_labels = [[l[i] if i < len(l) else pad_labels for i in range(max_len)] for l in batch_labels]
+        # return padded_data, batch_labels
+
+        q1_list, q2_list, batch_labels = zip(*batch)
+        max_q1 = max(map(len, q1_list))
+        max_q2 = max(map(len, q2_list))
+        longest = max(max_q1, max_q2)
+        q1_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q1)] for b in q1_list]
+        q2_list = [[b[i] if i < len(b) else PADDING_WORD for i in range(max_q2)] for b in q2_list]
+        padded_data = [q1_list[i] + [PADDING_WORD] + q2_list[i] for i in range(len(q1_list))]
         return padded_data, batch_labels
 
 
@@ -190,6 +210,8 @@ class NERClassifier(nn.Module):
 
         def get_glove_embeddings():
             word_id_lists = []
+            # print(x)
+            # print(np.shape(x))
             for sentence in x:
                 word_id = [self.w2i[word] if word in self.w2i else 1 for word in sentence]
                 word_id_lists.append(word_id)
@@ -266,8 +288,9 @@ if __name__ == '__main__':
     confusion_matrix = [[0, 0],
                         [0, 0]]
     test_data = NERDataset(args.test)
-    for x, y in tqdm(test_data):
-        pred = torch.argmax(ner([x]), dim=-1).detach().cpu().numpy().squeeze()
+    test_loader = DataLoader(test_data, batch_size=1, collate_fn=PadSequence())
+    for x, y in tqdm(test_loader):
+        pred = torch.argmax(ner(x), dim=-1).detach().cpu().numpy().reshape(-1, )
         # print(np.shape(pred))
         y = np.array(y)
         # print(np.shape(y))
