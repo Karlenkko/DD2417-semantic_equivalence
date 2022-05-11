@@ -6,10 +6,15 @@ import pandas as pd
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    file_path = "/content/gdrive/MyDrive/Semantic Equivalence Detection/questions.csv"
-    data = pd.read_csv(file_path,
-                       dtype={'id': np.int32, 'qid1': np.int32, 'qid2': np.int32, 'question1': str, 'question2': str,
-                              'is_duplicate': np.int8})
-    data = data[["question1", "question2", "is_duplicate"]]
+    training = pd.read_csv("training.csv")
+    data = training["question1"].tolist()
+    print(np.shape(data))
+    print(data[0])
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    data = training["question2"].tolist()
+    print(data[1])
+    test = pd.read_csv("test.csv")
+    print(np.shape(test))
+    data = test["question2"].tolist()
+    print(data[23])
+

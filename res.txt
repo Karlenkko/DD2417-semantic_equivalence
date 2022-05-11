@@ -1,0 +1,23 @@
+batch_size=256, epochs=5, eta=0.002, glove50
+nltk tokenization, padding after concatenation, no separation mark, no end mark
++-------------------+------------------------+---------------------+
+|                   | Predicted no duplicate | Predicted duplicate |
++-------------------+------------------------+---------------------+
+| Real no duplicate | 25529                  | 812                 |
+| Real duplicate    | 11413                  | 2680                |
++-------------------+------------------------+---------------------+
+Accuracy: 0.6977
+
+
+batch_size=256, epochs=5, eta=0.002, glove50
+nltk tokenization, padding after concatenation, separation mark: padding, no end mark
++-------------------+------------------------+---------------------+
+|                   | Predicted no duplicate | Predicted duplicate |
++-------------------+------------------------+---------------------+
+| Real no duplicate | 25338                  | 1003                |
+| Real duplicate    | 10328                  | 3765                |
++-------------------+------------------------+---------------------+
+Accuracy: 0.7198
+
+batch_size=256, epochs=5, eta=0.002, glove50
+nltk tokenization, max padding over q1 and q2 for all data set, separation mark: padding, no end mark
