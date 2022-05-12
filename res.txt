@@ -44,3 +44,10 @@ Accuracy: 0.6918
 
 batch_size=256, epochs=5, eta=0.002, glove50
 nltk tokenization, max padding over q1 and q2 for q1 and q2 by batch, separation mark: padding, no end mark
++-------------------+------------------------+---------------------+
+|                   | Predicted no duplicate | Predicted duplicate |
++-------------------+------------------------+---------------------+
+| Real no duplicate | 25909                  | 432                 |
+| Real duplicate    | 12387                  | 1706                |
++-------------------+------------------------+---------------------+
+Accuracy: 0.683
