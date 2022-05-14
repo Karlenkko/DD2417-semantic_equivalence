@@ -22,6 +22,7 @@ PADDING_WORD = '<PAD>'
 UNKNOWN_WORD = '<UNK>'
 CHARS = ['<UNK>', '<space>', '’', '—'] + list(string.punctuation) + list(string.ascii_letters) + list(string.digits)
 
+Testing = False
 
 def load_glove_embeddings(embedding_file, padding_idx=0, padding_word=PADDING_WORD, unknown_word=UNKNOWN_WORD):
     """
@@ -77,7 +78,8 @@ class NERDataset(Dataset):
         print("use nltk tokenization")
         q1_list = [nltk.word_tokenize(q.lower()) for q in q1_list]
         q2_list = [nltk.word_tokenize(q.lower()) for q in q2_list]
-        self.sentences = [q1_list[i] + [PADDING_WORD] + q2_list[i] for i in range(len(q1_list))]
+        self.sentences = [q1_list[i] + [PADDING_WORD] + q2_list[i] + [PADDING_WORD] for i in range(len(q1_list))]
+
 
         # print("keep symbols and pad without alignment")
         # self.sentences = [re.findall(r"\w+|[^\w\s]", q1_list[i], re.UNICODE) + re.findall(r"\w+|[^\w\s]", q2_list[i], re.UNICODE)
@@ -97,6 +99,9 @@ class NERDataset(Dataset):
         # print(m)
         # max_len = max(map(len, q1))
         self.labels = data["is_duplicate"].tolist()
+        # if not Testing:
+        #     self.sentences += [q2_list[i] + [PADDING_WORD] + q1_list[i] + [PADDING_WORD] for i in range(len(q1_list))]
+        #     self.labels += self.labels
 
     def __bio2int(self, x):
         return 0 if x == 'O' or x == 0 else 1
@@ -122,7 +127,7 @@ class PadSequence:
 
 
 class NERClassifier(nn.Module):
-    def __init__(self, word_emb_file, char_emb_size=16, char_hidden_size=25, word_hidden_size=120,
+    def __init__(self, word_emb_file, char_emb_size=16, char_hidden_size=25, word_hidden_size=100,
                  padding_word=PADDING_WORD, unknown_word=UNKNOWN_WORD, char_map=CHARS,
                  char_bidirectional=True, word_bidirectional=True):
         """
@@ -158,20 +163,13 @@ class NERClassifier(nn.Module):
         self.word_emb = nn.Embedding(vocabulary_size, self.word_emb_size).cuda()
         self.word_emb.weight = nn.Parameter(torch.from_numpy(embeddings).cuda(), requires_grad=False)
 
-        if self.char_emb_size > 0:
-            self.c2i = {c: i for i, c in enumerate(char_map)}
-            self.char_emb = nn.Embedding(len(char_map), char_emb_size, padding_idx=0).cuda()
-            self.char_birnn = GRU2(self.char_emb_size, self.char_hidden_size, bidirectional=char_bidirectional).cuda()
-        else:
-            self.char_hidden_size = 0
-
         multiplier = 2 if self.char_bidirectional else 1
         # self.word_birnn = GRU2(
         #     self.word_emb_size,  # input size
         #     self.word_hidden_size,  # hidden size
         #     bidirectional=word_bidirectional
         # ).cuda()
-        self.word_birnn = nn.GRU(self.word_emb_size, multiplier * self.word_hidden_size, batch_first=True)
+        self.word_birnn = nn.GRU(self.word_emb_size, multiplier * self.word_hidden_size, batch_first=True, num_layers=5)
         # Binary classification - 0 if not part of the name, 1 if a name
         multiplier = 2 if self.word_bidirectional else 1
         self.final_pred = nn.Linear(multiplier * self.word_hidden_size, 2).cuda()
@@ -202,14 +200,15 @@ class NERClassifier(nn.Module):
         B, T = len(x), len(x[0])
         word_embeddings = get_glove_embeddings()
 
-        if self.word_bidirectional:
-            outputs, _ = self.word_birnn.forward(word_embeddings)
-        else:
-            outputs, _ = self.word_birnn.forward(word_embeddings)
+        # if self.word_bidirectional:
+        #     outputs, _ = self.word_birnn.forward(word_embeddings)
+        # else:
+        outputs, _ = self.word_birnn.forward(word_embeddings)
         # print(outputs.size())
         out = outputs[:, -1, :]
         # print(out.size())
-        return self.final_pred(out)
+        res = self.final_pred(out)
+        return res
 
 #
 # MAIN SECTION
@@ -228,7 +227,7 @@ if __name__ == '__main__':
     parser.add_argument('-cud', '--char-unidirectional', action='store_true')
     parser.add_argument('-wud', '--word-unidirectional', action='store_true')
     parser.add_argument('-lr', '--learning-rate', default=0.002, help='A learning rate')
-    parser.add_argument('-e', '--epochs', default=20, type=int, help='Number of epochs')
+    parser.add_argument('-e', '--epochs', default=40, type=int, help='Number of epochs')
     args = parser.parse_args()
 
     training_data = NERDataset(args.train)
@@ -259,15 +258,22 @@ if __name__ == '__main__':
             optimizer.step()
 
     # Evaluation
+    Testing = True
     print("start evaluation")
     ner.eval()
     print("eval done")
     confusion_matrix = [[0, 0],
                         [0, 0]]
     test_data = NERDataset(args.test)
+    idx = 0
+    # OUT = False
+    representations_test = []
+    representations_training = []
     for x, y in tqdm(test_data):
-        pred = torch.argmax(ner([x]), dim=-1).detach().cpu().numpy().squeeze()
-        # print(np.shape(pred))
+        res = ner([x]).detach().cpu().tolist()
+        representations_test += res
+        pred = np.array(np.argmax(res, axis=-1).squeeze())
+        # print(pred)
         y = np.array(y)
         # print(np.shape(y))
         tp = np.sum(pred[y == 1])
@@ -284,8 +290,16 @@ if __name__ == '__main__':
              ['Real no duplicate', confusion_matrix[0][0], confusion_matrix[0][1]],
              ['Real duplicate', confusion_matrix[1][0], confusion_matrix[1][1]]]
 
+
     t = AsciiTable(table)
     print(t.table)
     print("Accuracy: {}".format(
         round((confusion_matrix[0][0] + confusion_matrix[1][1]) / np.sum(confusion_matrix), 4))
     )
+
+    for x, y in tqdm(training_data):
+        res = ner([x]).detach().cpu().tolist()
+        representations_training += res
+
+    pd.DataFrame(representations_test).to_csv('concatGRU_test_2_padding_out_5lv.csv', header=['concatGRU_1', 'concatGRU_2'], index=False)
+    pd.DataFrame(representations_training).to_csv('concatGRU_training_2_padding_out_5lv.csv', header=['concatGRU_1', 'concatGRU_2'], index=False)
